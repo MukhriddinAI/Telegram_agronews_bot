@@ -1,10 +1,10 @@
 import os
+from dotenv import load_dotenv
+load_dotenv(override=True)
 import json
 import time
 from datetime import datetime
 from main import crew_run
-from dotenv import load_dotenv
-load_dotenv(override=True)
 from telegram_sender import send_news_to_telegram, validate_bot_connection
 
 # Configuration

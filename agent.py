@@ -1,9 +1,6 @@
 import os
 from crewai import Agent
-from dotenv import load_dotenv
-load_dotenv(override=True)
 
-os.environ["GOOGLE_API_KEY"] = os.getenv("GOOGLE_API_KEY")
 
 def agronews_scraper(LLM, searching_tool):
     return Agent(

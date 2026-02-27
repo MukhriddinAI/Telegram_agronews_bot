@@ -1,15 +1,15 @@
+import os
+from dotenv import load_dotenv
+load_dotenv(override=True)
+
 from sources import news_urls_uz, news_urls_world
 from agent import agronews_scraper, agronews_summarizer, news_analyser, validator
 from task import news_scraper_task, text_summerizer_task, validator_task, analyser_task
 
 from crewai import Crew, LLM, Process
 from crewai.tools import tool
-from dotenv import load_dotenv
-import os
 from duckduckgo_search import DDGS
 import time
-
-load_dotenv(override=True)
 
 @tool("Search the web")
 def duckduckgo_search(query: str) -> str:

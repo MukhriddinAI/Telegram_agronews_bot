@@ -1,10 +1,5 @@
 from datetime import datetime
 from crewai import Task
-from dotenv import load_dotenv
-import os
-load_dotenv(override=True)
-
-os.environ["GOOGLE_API_KEY"] = os.getenv("GOOGLE_API_KEY")
 
 def news_scraper_task(searching_tool, agent, links):
     return Task(
