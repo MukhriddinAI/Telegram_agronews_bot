@@ -1,7 +1,9 @@
 import os
+import re
 import logging
 import requests
 from datetime import datetime
+from urllib.parse import urlparse
 
 logger = logging.getLogger(__name__)
 
@@ -34,17 +36,48 @@ def send_message(text: str, parse_mode: str = "HTML") -> bool:
         return False
 
 
+def _escape_html(text: str) -> str:
+    """Escape HTML special characters in plain text."""
+    return text.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+
+
+def _clean_url(url: str) -> str:
+    """Extract and clean a URL from LLM output."""
+    if not url:
+        return ""
+    url = url.strip().strip('"\'`')
+    # Extract URL from markdown format: [text](url)
+    md_match = re.search(r'\(https?://[^\)]+\)', url)
+    if md_match:
+        url = md_match.group(0)[1:-1]
+    # Remove trailing punctuation that LLM might add
+    url = url.rstrip(".,;:")
+    # Validate scheme and netloc
+    try:
+        parsed = urlparse(url)
+        if parsed.scheme in ("http", "https") and parsed.netloc:
+            return url
+    except Exception:
+        pass
+    return ""
+
+
 def format_news_message(news_item: dict, index: int) -> str:
     """Format a single news item as a Telegram HTML message."""
     sarlavha = news_item.get("Sarlavha", "Sarlavha yo'q")
     matn = news_item.get("Yangilik matni", "")
     manba = news_item.get("Manba", "")
 
-    message = f"<b>{index}. {sarlavha}</b>\n\n{matn}\n\n"
-    if manba and manba.startswith("http"):
-        message += f'<a href="{manba}">Manbaga o\'tish</a>'
+    # Escape HTML special chars so Telegram parser doesn't break
+    message = f"<b>{index}. {_escape_html(sarlavha)}</b>\n\n{_escape_html(matn)}\n\n"
+
+    clean_url = _clean_url(manba)
+    if clean_url:
+        # & in href must be &amp; in HTML mode
+        html_url = clean_url.replace("&", "&amp;")
+        message += f'<a href="{html_url}">Manbaga o\'tish</a>'
     elif manba:
-        message += f"Manba: {manba}"
+        message += f"Manba: {_escape_html(manba)}"
     return message
 
 

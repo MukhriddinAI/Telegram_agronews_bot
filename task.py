@@ -71,7 +71,7 @@ def text_summarizer_task(agent):
                 {
                     "Sarlavha": "Jozibali sarlavha",
                     "Yangilik matni": "Qisqacha va aniq mazmun",
-                    "Manba": "https://source-link.com"
+                    "Manba": "https://exact-source-url.com/article-path"
                 }
             ]
 
@@ -80,6 +80,8 @@ def text_summarizer_task(agent):
             - Markdown, izohlar, qo'shimcha belgilar YO'Q
             - Faqat to'g'ri JSON struktura
             - O'zbek tilida yozing
+            - "Manba" maydoniga FAQAT scraper topgan haqiqiy URL ni yozing (o'zgartirmang, to'ldirmang)
+            - URL ni qisqartirmang yoki o'zgartirmang - AYNAN scraper bergan havolani yozing
         """,
         expected_output="To'g'ri formatdagi JSON massiv (2 ta yangilik)",
         agent=agent,
