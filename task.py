@@ -1,26 +1,24 @@
-from datetime import datetime
 from crewai import Task
 
-def news_scraper_task(searching_tool, agent, links):
+
+def news_scraper_task(searching_tool, agent, sources):
     return Task(
         description=(f"""
             1. Quyidagi vebsaytlardan eng so'nggi agro yangiliklarni qidiring.
             2. Har bir manbadan FAQAT 1 ta eng muhim yangilikni tanlang.
-            3. O'zbekiston yangiliklari: {links[0]}
-            4. Jahon yangiliklari: {links[1]}
-            
-            MUHIM: 
+            3. O'zbekiston yangiliklari: {sources['uz']}
+            4. Jahon yangiliklari: {sources['world']}
+
+            MUHIM:
             - Jami 10 ta yangilik (5 ta O'zbekiston + 5 ta Jahon)
             - Har bir yangilik uchun: sarlavha, qisqacha mazmun, manba havolasi
             - Faqat bugungi yoki kechagi yangiliklarni oling
-            
-            Manba:
-            {links}
         """),
         expected_output="Jami 10 ta yangilik (sarlavha, mazmun, havola)",
         agent=agent,
-        tools=[searching_tool]
+        tools=[searching_tool],
     )
+
 
 def validator_task(agent):
     return Task(
@@ -30,12 +28,13 @@ def validator_task(agent):
             2. Takroriy yangiliklarni olib tashlang
             3. 7 kundan eski yangiliklarni olib tashlang
             4. Faqat ishonchli yangiliklarni qoldiring
-            
+
             NATIJA: Tozalangan yangiliklarni qaytaring
         """,
         expected_output="Tekshirilgan va tozalangan yangililar ro'yxati",
         agent=agent,
     )
+
 
 def analyser_task(agent):
     return Task(
@@ -53,11 +52,11 @@ def analyser_task(agent):
             MUHIM: Faqat 2 ta yangilik tanlang - eng sara va eng muhim ikki yangilik
         """,
         expected_output="Eng muhim 2 ta yangilik",
-        agent=agent
+        agent=agent,
     )
 
-def text_summerizer_task(agent):
-    filename = datetime.now().strftime("%Y%m%d_%H%M%S")
+
+def text_summarizer_task(agent):
     return Task(
         description="""
             Tanlangan 2 ta yangilikni Telegram blog formatiga keltiring:
@@ -84,5 +83,4 @@ def text_summerizer_task(agent):
         """,
         expected_output="To'g'ri formatdagi JSON massiv (2 ta yangilik)",
         agent=agent,
-        output_file=f"outputs/{filename}_agro_news.json"
     )

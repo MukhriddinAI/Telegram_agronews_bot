@@ -6,6 +6,7 @@ Diagnostic script to check API configuration and quota status
 import os
 from dotenv import load_dotenv
 import litellm
+from config import GEMINI_MODELS
 
 load_dotenv()
 
@@ -24,47 +25,38 @@ if api_key:
 else:
     print("❌ GOOGLE_API_KEY not found!")
     print("   Please create a .env file with your API key")
-    exit(1)
+    raise SystemExit(1)
 
 # 2. Test LLM initialization
 print("\n2️⃣ Testing LLM Initialization...")
 print("-" * 70)
 
-models_to_test = [
-    ("gemini/gemini-1.5-flash", "Gemini 1.5 Flash (Recommended - 1500 RPD)"),
-    ("gemini/gemini-2.0-flash-exp", "Gemini 2.0 Flash Experimental"),
-    ("gemini/gemini-2.5-flash", "Gemini 2.5 Flash (20 RPD)")
-]
-
 working_models = []
 
-for model, description in models_to_test:
+for model, description in GEMINI_MODELS:
     try:
         print(f"\n🧪 Testing: {description}")
         print(f"   Model: {model}")
-        
-        # Try to make a simple call
+
         response = litellm.completion(
             model=model,
             messages=[{"role": "user", "content": "Hello"}],
             max_tokens=5,
-            api_key=api_key
+            api_key=api_key,
         )
-        
-        print(f"   ✅ SUCCESS - Model is working!")
+
+        print("   ✅ SUCCESS - Model is working!")
         working_models.append((model, description))
-        
+
     except Exception as e:
         error_msg = str(e)
-        
+
         if "429" in error_msg or "RESOURCE_EXHAUSTED" in error_msg:
-            print(f"   ⚠️ QUOTA EXCEEDED")
-            if "20" in error_msg:
-                print(f"   📊 Daily limit reached (20/20 requests)")
-            print(f"   💡 This model is out of quota but might work tomorrow")
+            print("   ⚠️ QUOTA EXCEEDED")
+            print("   💡 This model is out of quota but might work tomorrow")
         elif "401" in error_msg or "UNAUTHENTICATED" in error_msg:
-            print(f"   ❌ AUTHENTICATION FAILED")
-            print(f"   💡 Check your API key")
+            print("   ❌ AUTHENTICATION FAILED")
+            print("   💡 Check your API key")
         else:
             print(f"   ❌ FAILED: {error_msg[:100]}")
 
