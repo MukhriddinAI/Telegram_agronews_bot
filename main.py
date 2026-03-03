@@ -10,8 +10,7 @@ from config import SEPARATOR, OUTPUTS_DIR, GEMINI_MODELS
 from crewai import Crew, LLM, Process
 from crewai.tools import tool
 from duckduckgo_search import DDGS
-import litellm
-
+from google import genai
 logger = logging.getLogger(__name__)
 
 
@@ -39,18 +38,14 @@ def initialize_llm():
     returning — this ensures the fallback chain actually triggers on quota
     or auth errors rather than always returning the first model.
     """
-    api_key = os.getenv("GOOGLE_API_KEY")
+    api_key = os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY")
+    client = genai.Client(api_key=api_key)
     for model, description in GEMINI_MODELS:
         try:
             logger.info("Probing model: %s", description)
-            litellm.completion(
-                model=model,
-                messages=[{"role": "user", "content": "Hi"}],
-                max_tokens=1,
-                api_key=api_key,
-            )
+            sdk_model = model.removeprefix("gemini/")
+            client.models.generate_content(model=sdk_model, contents="Hi")
             llm = LLM(
-                provider="litellm",
                 model=model,
                 api_key=api_key,
                 temperature=0.7,

@@ -14,10 +14,17 @@ from main import crew_run
 from telegram_sender import send_news_to_telegram, validate_bot_connection
 
 MAX_RETRIES = 3
-INITIAL_WAIT = 60
+INITIAL_WAIT = 1       # base wait in seconds (doubles each attempt: 1, 2, 4, …)
 BACKOFF_MULTIPLIER = 2
 
 logger = logging.getLogger(__name__)
+
+
+def _backoff_wait(attempt: int) -> None:
+    """Sleep 1s, 2s, 4s … based on attempt index (0-based)."""
+    wait = INITIAL_WAIT * (BACKOFF_MULTIPLIER ** attempt)
+    logger.info("Waiting %d second(s) before retry (attempt %d/%d)...", wait, attempt + 1, MAX_RETRIES)
+    time.sleep(wait)
 
 
 def parse_dirty_json(input_data):
@@ -149,7 +156,7 @@ def main():
             if is_fake_results(results):
                 logger.warning("Soxta 'yangilik topilmadi' mazmun aniqlandi. Qayta urinilmoqda...")
                 if attempt < MAX_RETRIES - 1:
-                    time.sleep(10)
+                    _backoff_wait(attempt)
                     continue
                 else:
                     logger.error("Barcha urinishlardan keyin ham haqiqiy yangilik topilmadi.")
@@ -182,8 +189,7 @@ def main():
         except (ValueError, json.JSONDecodeError) as parse_error:
             logger.warning("JSON parsing failed: %s", parse_error)
             if attempt < MAX_RETRIES - 1:
-                logger.info("Retrying workflow in 10 seconds...")
-                time.sleep(10)
+                _backoff_wait(attempt)
             else:
                 logger.error("All retry attempts exhausted.")
                 raise
@@ -200,17 +206,11 @@ def main():
                     )
                     break
                 else:
-                    wait_time = INITIAL_WAIT * (BACKOFF_MULTIPLIER ** attempt)
-                    logger.warning("Rate limit hit. Waiting %d seconds...", wait_time)
-                    for remaining in range(wait_time, 0, -10):
-                        print(f"\r⏳ {remaining}s remaining...", end="", flush=True)
-                        time.sleep(10)
-                    print()
-                    logger.info("Retrying now...")
+                    logger.warning("Rate limit hit.")
+                    _backoff_wait(attempt)
             else:
                 if attempt < MAX_RETRIES - 1:
-                    logger.info("Unexpected error. Retrying in 30 seconds...")
-                    time.sleep(30)
+                    _backoff_wait(attempt)
                 else:
                     logger.error("All retry attempts exhausted.")
                     break

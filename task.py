@@ -77,8 +77,9 @@ def analyser_task(agent):
             - O'quvchiga foydasi
 
             MUHIM (QOIDA):
+            -  Har bir yangilikdagi "url" maydonini O'ZGARTIRMANG!
+            URL ni aynan scraper bergan ko'rinishda saqlang.
             - Faqat 2 ta yangilik tanlang - eng sara va eng muhim ikki yangilik
-            - Tanlangan yangiliklardagi "url" maydonini O'ZGARTIRMANG!
             - JSON formatda qaytaring (sarlavha, mazmun, url)
         """,
         expected_output="JSON massiv: 2 ta yangilik (sarlavha, mazmun, url)",
@@ -109,7 +110,7 @@ def text_summarizer_task(agent):
             - "Manba" = oldingi agentdan kelgan "url" maydonini AYNAN KO'CHIRING
             - URL ni O'ZGARTIRMANG, QISQARTIRMANG, TO'QIMANG
             - Yangi URL to'qimang - hatto manba nomi o'xshash bo'lsa ham
-            - Agar url bo'sh yoki yo'q bo'lsa, FAQAT manba domenini yozing (masalan: https://farms.com)
+            - Agar url bo'sh yoki yo'q bo'lsa, FAQAT manba domenini yozing
 
             4. BOSHQA TALABLAR:
             - JSON massiv bo'lishi SHART (faqat 2 ta element)
