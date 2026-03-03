@@ -1,20 +1,44 @@
 from crewai import Task
+from datetime import datetime
 
 
 def news_scraper_task(searching_tool, agent, sources):
+    year = datetime.now().year
     return Task(
         description=(f"""
-            1. Quyidagi vebsaytlardan eng so'nggi agro yangiliklarni qidiring.
-            2. Har bir manbadan FAQAT 1 ta eng muhim yangilikni tanlang.
-            3. O'zbekiston yangiliklari: {sources['uz']}
-            4. Jahon yangiliklari: {sources['world']}
+            MAQSAD: Qishloq xo'jaligi bo'yicha eng so'nggi 10 ta haqiqiy yangilik topish.
 
-            MUHIM:
-            - Jami 10 ta yangilik (5 ta O'zbekiston + 5 ta Jahon)
-            - Har bir yangilik uchun: sarlavha, qisqacha mazmun, manba havolasi
-            - Faqat bugungi yoki kechagi yangiliklarni oling
+            QIDIRUV SO'ROVLARI (KETMA-KET BAJARING):
+            1. "Uzbekistan agriculture news today {year}"
+            2. "agricultural news today farms crops {year}"
+            3. "qishloq xo'jaligi yangiliklar {year}"
+            4. "world agriculture food news latest"
+            5. "agronews farming latest {year}"
+
+            ISHONCHLI MANBALAR (natijalarni shu saytlardan afzal ko'ring):
+            - Jahon: {sources['world']}
+            - O'zbekiston: {sources['uz']}
+
+            QOIDALAR:
+            - Har bir so'rovdan 2-3 ta yangilik oling
+            - Jami hech bo'lmasa 5 ta (imkon bo'lsa 10 ta) haqiqiy yangilik yig'ing
+            - "Yangilik topilmadi" deb YOZMANG — boshqa so'rov bilan qidirishni davom ettiring
+
+            CHIQARISH FORMATI - QATTIY JSON MASSIV:
+            [
+              {{
+                "sarlavha": "Yangilik sarlavhasi",
+                "mazmun": "100-150 so'z mazmun",
+                "url": "DuckDuckGo natijasidagi Link: qiymatidan olingan HAQIQIY URL"
+              }}
+            ]
+
+            URL BO'YICHA QOIDA (ENG MUHIM):
+            - "url" maydoniga FAQAT DuckDuckGo qidiruv natijasidagi "Link:" ni yozing
+            - URL ni o'zgartirmang, taxmin qilmang, to'ldirmang
+            - Agar maqola havolasi topilmasa, manba domenini yozing (masalan: https://agronews.com)
         """),
-        expected_output="Jami 10 ta yangilik (sarlavha, mazmun, havola)",
+        expected_output="JSON massiv: kamida 5 ta yangilik (sarlavha, mazmun, url)",
         agent=agent,
         tools=[searching_tool],
     )
@@ -29,9 +53,12 @@ def validator_task(agent):
             3. 7 kundan eski yangiliklarni olib tashlang
             4. Faqat ishonchli yangiliklarni qoldiring
 
-            NATIJA: Tozalangan yangiliklarni qaytaring
+            MUHIM: Har bir yangilikdagi "url" maydonini O'ZGARTIRMANG!
+            URL ni aynan scraper bergan ko'rinishda saqlang.
+
+            NATIJA: Tozalangan yangiliklarni JSON formatda qaytaring (sarlavha, mazmun, url)
         """,
-        expected_output="Tekshirilgan va tozalangan yangililar ro'yxati",
+        expected_output="JSON massiv: tekshirilgan yangililar (sarlavha, mazmun, url)",
         agent=agent,
     )
 
@@ -49,9 +76,12 @@ def analyser_task(agent):
             - Dolzarbligi (bugungi sana)
             - O'quvchiga foydasi
 
-            MUHIM: Faqat 2 ta yangilik tanlang - eng sara va eng muhim ikki yangilik
+            MUHIM (QOIDA):
+            - Faqat 2 ta yangilik tanlang - eng sara va eng muhim ikki yangilik
+            - Tanlangan yangiliklardagi "url" maydonini O'ZGARTIRMANG!
+            - JSON formatda qaytaring (sarlavha, mazmun, url)
         """,
-        expected_output="Eng muhim 2 ta yangilik",
+        expected_output="JSON massiv: 2 ta yangilik (sarlavha, mazmun, url)",
         agent=agent,
     )
 
@@ -59,30 +89,33 @@ def analyser_task(agent):
 def text_summarizer_task(agent):
     return Task(
         description="""
-            Tanlangan 2 ta yangilikni Telegram blog formatiga keltiring:
+            Tanlangan 2 ta yangilikni Telegram blog formatiga keltiring.
 
             1. Har bir yangilik uchun:
-               - Jozibali sarlavha (50-70 belgi)
-               - Qisqacha mazmun (100-150 so'z) - aniq, foydali va qiziqarli
+               - Jozibali sarlavha (50-70 belgi) - o'zbek tilida
+               - Qisqacha mazmun (100-150 so'z) - aniq, foydali va qiziqarli, o'zbek tilida
                - Manba havolasi
 
-            2. JSON FORMAT (QATTIY QOIDALAR):
+            2. CHIQARISH FORMATI - FAQAT JSON (hech qanday qo'shimcha matn yo'q):
             [
                 {
                     "Sarlavha": "Jozibali sarlavha",
                     "Yangilik matni": "Qisqacha va aniq mazmun",
-                    "Manba": "https://exact-source-url.com/article-path"
+                    "Manba": "oldingi agentdan kelgan url qiymati"
                 }
             ]
 
-            3. TALABLAR:
+            3. URL BO'YICHA QOIDA (ENG MUHIM - BU QOIDANI BUZISH MUMKIN EMAS):
+            - "Manba" = oldingi agentdan kelgan "url" maydonini AYNAN KO'CHIRING
+            - URL ni O'ZGARTIRMANG, QISQARTIRMANG, TO'QIMANG
+            - Yangi URL to'qimang - hatto manba nomi o'xshash bo'lsa ham
+            - Agar url bo'sh yoki yo'q bo'lsa, FAQAT manba domenini yozing (masalan: https://farms.com)
+
+            4. BOSHQA TALABLAR:
             - JSON massiv bo'lishi SHART (faqat 2 ta element)
             - Markdown, izohlar, qo'shimcha belgilar YO'Q
             - Faqat to'g'ri JSON struktura
-            - O'zbek tilida yozing
-            - "Manba" maydoniga FAQAT scraper topgan haqiqiy URL ni yozing (o'zgartirmang, to'ldirmang)
-            - URL ni qisqartirmang yoki o'zgartirmang - AYNAN scraper bergan havolani yozing
         """,
-        expected_output="To'g'ri formatdagi JSON massiv (2 ta yangilik)",
+        expected_output="To'g'ri formatdagi JSON massiv (2 ta yangilik, haqiqiy URL bilan)",
         agent=agent,
     )

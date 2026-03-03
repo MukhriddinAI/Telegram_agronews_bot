@@ -1,5 +1,6 @@
 import os
 import re
+import time
 import logging
 import requests
 from datetime import datetime
@@ -108,7 +109,8 @@ def send_news_to_telegram(news_list: list) -> dict:
         logger.warning("Jo'natish uchun yangilik yo'q.")
         return {"success": 0, "failed": 0}
 
-    send_daily_header()
+    if not send_daily_header():
+        logger.warning("Telegram header xabari jo'natilmadi.")
     results = {"success": 0, "failed": 0}
 
     for i, news_item in enumerate(news_list[:2], start=1):
@@ -118,6 +120,7 @@ def send_news_to_telegram(news_list: list) -> dict:
         else:
             results["failed"] += 1
             logger.error("Yangilik %d jo'natilmadi!", i)
+        time.sleep(1)  # Telegram rate limit: 1 message/second per chat
 
     return results
 

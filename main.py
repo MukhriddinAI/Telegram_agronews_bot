@@ -1,6 +1,5 @@
 import os
 import logging
-import time
 from dotenv import load_dotenv
 load_dotenv(override=True)
 
@@ -11,6 +10,7 @@ from config import SEPARATOR, OUTPUTS_DIR, GEMINI_MODELS
 from crewai import Crew, LLM, Process
 from crewai.tools import tool
 from duckduckgo_search import DDGS
+import litellm
 
 logger = logging.getLogger(__name__)
 
@@ -33,20 +33,32 @@ def duckduckgo_search(query: str) -> str:
 
 
 def initialize_llm():
-    """Initialize LLM with model fallback chain defined in config.GEMINI_MODELS."""
+    """Initialize LLM with model fallback chain defined in config.GEMINI_MODELS.
+
+    Makes a minimal probe call per model to verify it is accessible before
+    returning — this ensures the fallback chain actually triggers on quota
+    or auth errors rather than always returning the first model.
+    """
+    api_key = os.getenv("GOOGLE_API_KEY")
     for model, description in GEMINI_MODELS:
         try:
-            logger.info("Trying to initialize: %s", description)
+            logger.info("Probing model: %s", description)
+            litellm.completion(
+                model=model,
+                messages=[{"role": "user", "content": "Hi"}],
+                max_tokens=1,
+                api_key=api_key,
+            )
             llm = LLM(
                 provider="litellm",
                 model=model,
-                api_key=os.getenv("GOOGLE_API_KEY"),
+                api_key=api_key,
                 temperature=0.7,
             )
             logger.info("Successfully initialized: %s", description)
             return llm
         except Exception as e:
-            logger.warning("Failed to initialize %s: %s", description, e)
+            logger.warning("Model %s unavailable: %s", description, e)
     raise RuntimeError("All LLM initialization attempts failed. Check your API key and quota.")
 
 
@@ -66,8 +78,6 @@ def crew_run(search_tool=None):
     except Exception as e:
         logger.error("LLM Initialization Error: %s", e)
         raise
-
-    time.sleep(2)
 
     logger.info("Creating Agents...")
     agent1 = agronews_scraper(llm, search_tool)

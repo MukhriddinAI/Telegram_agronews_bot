@@ -3,9 +3,9 @@ SUBSEPARATOR = "-" * 70
 OUTPUTS_DIR = "outputs"
 
 GEMINI_MODELS = [
-    ("gemini/gemini-2.5-flash", "Gemini 2.5 Flash"),
+    ("gemini/gemini-1.5-flash", "Gemini 1.5 Flash"),
+    ("gemini/gemini-1.5-pro", "Gemini 1.5 Pro"),
     ("gemini/gemini-2.5-flash-preview-04-17", "Gemini 2.5 Flash Preview"),
-    ("gemini/gemini-2.0-flash-exp", "Gemini 2.0 Flash Experimental"),
 ]
 
 QUOTA_KEYWORDS = [
@@ -13,6 +13,6 @@ QUOTA_KEYWORDS = [
     "RESOURCE_EXHAUSTED",
     "QUOTA",
     "RATE_LIMIT",
-    "exceeded your current quota",
-    "perdayperproject",
+    "EXCEEDED YOUR CURRENT QUOTA",
+    "PERDAYPERPROJECT",
 ]
