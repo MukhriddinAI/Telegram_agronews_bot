@@ -1,72 +1,42 @@
-import os
+import json
 import logging
+import os
+import re
+
 from dotenv import load_dotenv
 load_dotenv(override=True)
 
-from sources import NEWS_SOURCES
-from agent import agronews_scraper, agronews_summarizer, news_analyser, validator
-from task import news_scraper_task, text_summarizer_task, validator_task, analyser_task
-from config import SEPARATOR, OUTPUTS_DIR, GEMINI_MODELS
+from agent import agronews_summarizer, news_filter_analyser
+from config import GEMINI_MODELS, OUTPUTS_DIR, SEPARATOR
 from crewai import Crew, LLM, Process
-from crewai.tools import tool
-from duckduckgo_search import DDGS
-from google import genai
+from scraper import scrape_agro_news
+from task import filter_and_analyse_task, text_summarizer_task
+
 logger = logging.getLogger(__name__)
 
 
-@tool("Search the web")
-def duckduckgo_search(query: str) -> str:
-    """Search the web using DuckDuckGo."""
-    try:
-        ddgs = DDGS()
-        results = ddgs.text(query, max_results=3)
-        if not results:
-            return "No results found."
-        formatted = [
-            f"Title: {r['title']}\nLink: {r['href']}\nDescription: {r['body']}\n"
-            for r in results
-        ]
-        return "\n\n".join(formatted)
-    except Exception as e:
-        return f"Search error: {e}"
-
-
 def initialize_llm():
-    """Initialize LLM with model fallback chain defined in config.GEMINI_MODELS.
-
-    Makes a minimal probe call per model to verify it is accessible before
-    returning — this ensures the fallback chain actually triggers on quota
-    or auth errors rather than always returning the first model.
-    """
+    """Initialize LLM using the first available model in the fallback chain."""
     api_key = os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY")
-    client = genai.Client(api_key=api_key)
-    for model, description in GEMINI_MODELS:
-        try:
-            logger.info("Probing model: %s", description)
-            sdk_model = model.removeprefix("gemini/")
-            client.models.generate_content(model=sdk_model, contents="Hi")
-            llm = LLM(
-                model=model,
-                api_key=api_key,
-                temperature=0.7,
-            )
-            logger.info("Successfully initialized: %s", description)
-            return llm
-        except Exception as e:
-            logger.warning("Model %s unavailable: %s", description, e)
-    raise RuntimeError("All LLM initialization attempts failed. Check your API key and quota.")
+    model, description = GEMINI_MODELS[0]
+    logger.info("Using model: %s", description)
+    return LLM(model=model, api_key=api_key, temperature=0.7)
 
 
-def crew_run(search_tool=None):
-    """Run the full crew workflow and return the raw result."""
-    if search_tool is None:
-        search_tool = duckduckgo_search
-
+def crew_run():
+    """Scrape news with BeautifulSoup then run the filter+summarizer crew."""
     logger.info(SEPARATOR)
     logger.info("AGRO NEWS SCRAPER - STARTING")
     logger.info(SEPARATOR)
 
     os.makedirs(OUTPUTS_DIR, exist_ok=True)
+
+    # Step 1: Scrape articles directly (no LLM agent needed)
+    logger.info("Scraping news from websites...")
+    scraped_articles = scrape_agro_news()
+    if not scraped_articles:
+        raise ValueError("No articles scraped from any source.")
+    logger.info("Scraped %d articles total.", len(scraped_articles))
 
     try:
         llm = initialize_llm()
@@ -75,23 +45,19 @@ def crew_run(search_tool=None):
         raise
 
     logger.info("Creating Agents...")
-    agent1 = agronews_scraper(llm, search_tool)
-    agent2 = validator(llm)
-    agent3 = news_analyser(llm)
-    agent4 = agronews_summarizer(llm)
+    agent_filter = news_filter_analyser(llm)
+    agent_summary = agronews_summarizer(llm)
     logger.info("All agents created")
 
     logger.info("Creating Tasks...")
-    task1 = news_scraper_task(search_tool, agent1, sources=NEWS_SOURCES)
-    task2 = validator_task(agent2)
-    task3 = analyser_task(agent3)
-    task4 = text_summarizer_task(agent4)
+    task_filter = filter_and_analyse_task(agent_filter, scraped_articles)
+    task_summary = text_summarizer_task(agent_summary)
     logger.info("All tasks created")
 
     logger.info("Starting Crew Workflow...")
     crew = Crew(
-        agents=[agent1, agent2, agent3, agent4],
-        tasks=[task1, task2, task3, task4],
+        agents=[agent_filter, agent_summary],
+        tasks=[task_filter, task_summary],
         process=Process.sequential,
         verbose=False,
         max_rpm=10,
@@ -101,7 +67,15 @@ def crew_run(search_tool=None):
     try:
         result = crew.kickoff(inputs={"topic": "Qishloq xo'jaligi yangiliklari"})
         logger.info("CREW WORKFLOW COMPLETED SUCCESSFULLY")
-        return result
+
+        raw = result.raw
+        match = re.search(r"\[.*\]", raw, re.DOTALL)
+        if not match:
+            raise ValueError("No JSON array found in crew result")
+        items = json.loads(match.group())
+        logger.info("Parsed %d news items from result.", len(items))
+        return items
+
     except Exception as e:
         logger.error("CREW WORKFLOW FAILED: %s", e)
         raise

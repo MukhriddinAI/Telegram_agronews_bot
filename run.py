@@ -2,9 +2,8 @@ import os
 import json
 import logging
 import time
-import re
+import tracemalloc
 from datetime import datetime
-from urllib.parse import urlparse
 from dotenv import load_dotenv
 
 load_dotenv(override=True)
@@ -27,31 +26,6 @@ def _backoff_wait(attempt: int) -> None:
     time.sleep(wait)
 
 
-def parse_dirty_json(input_data):
-    """Extract and parse JSON from a string that may contain markdown or extra text.
-    Always returns a list."""
-    text = str(input_data)
-
-    start = text.find("[")
-    end = text.rfind("]") + 1
-
-    if start == -1 or end == 0:
-        start = text.find("{")
-        end = text.rfind("}") + 1
-
-    if start == -1 or end == 0:
-        raise ValueError("No JSON structure found in the output.")
-
-    clean_json = text[start:end].replace("```json", "").replace("```", "").strip()
-
-    try:
-        result = json.loads(clean_json)
-        return result if isinstance(result, list) else [result]
-    except json.JSONDecodeError as e:
-        logger.warning("JSON parsing error: %s | snippet: %s", e, clean_json[:200])
-        raise
-
-
 _FAKE_CONTENT_PHRASES = [
     "yangilik topilmadi",
     "xabarlar topilmadi",
@@ -64,17 +38,6 @@ _FAKE_CONTENT_PHRASES = [
     "no results found",
 ]
 
-_HALLUCINATED_URL_PATTERN = re.compile(r'-\d{5,}(?:\.aspx|\.html|/)?$')
-
-
-def _is_likely_hallucinated(url: str) -> bool:
-    """Detect if a URL looks like an LLM hallucination (long numeric ID at the end)."""
-    if not url:
-        return False
-    path = urlparse(url).path
-    return bool(_HALLUCINATED_URL_PATTERN.search(path))
-
-
 def is_fake_results(results: list) -> bool:
     """Return True if ALL items look like hallucinated 'no news found' placeholders."""
     if not results:
@@ -86,17 +49,6 @@ def is_fake_results(results: list) -> bool:
             fake_count += 1
     return fake_count == len(results)
 
-
-def sanitize_urls(results: list) -> list:
-    """If a URL looks hallucinated, fall back to just the base domain."""
-    for item in results:
-        url = item.get("Manba", "")
-        if url and _is_likely_hallucinated(url):
-            parsed = urlparse(url)
-            base = f"{parsed.scheme}://{parsed.netloc}"
-            logger.warning("Hallucinated URL detected, falling back to domain: %s -> %s", url, base)
-            item["Manba"] = base
-    return results
 
 
 def save_results(results, filename=None):
@@ -123,6 +75,7 @@ def is_daily_quota_exceeded(error_msg):
 
 
 def main():
+    tracemalloc.start()
     os.makedirs(OUTPUTS_DIR, exist_ok=True)
 
     logging.basicConfig(
@@ -130,7 +83,6 @@ def main():
         format="%(asctime)s %(levelname)s %(name)s: %(message)s",
         handlers=[
             logging.StreamHandler(),
-            logging.FileHandler(f"{OUTPUTS_DIR}/app.log", encoding="utf-8"),
         ],
     )
 
@@ -148,10 +100,10 @@ def main():
     for attempt in range(MAX_RETRIES):
         try:
             logger.info("Attempt %d/%d: Running the crew workflow...", attempt + 1, MAX_RETRIES)
-            result = crew_run()
+            results = crew_run()
 
-            results = parse_dirty_json(result)
-            results = sanitize_urls(results)
+            if not isinstance(results, list) or not results:
+                raise ValueError("crew_run() returned empty or invalid results")
 
             if is_fake_results(results):
                 logger.warning("Soxta 'yangilik topilmadi' mazmun aniqlandi. Qayta urinilmoqda...")

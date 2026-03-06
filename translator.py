@@ -1,6 +1,9 @@
 import os
+import logging
 import litellm
 from config import GEMINI_MODELS
+
+logger = logging.getLogger(__name__)
 
 
 def translator(text: str, target_lang: str) -> str:
@@ -15,8 +18,11 @@ def translator(text: str, target_lang: str) -> str:
         f"Return only the translated text, nothing else.\n\n{text}"
     )
 
-    api_key = os.getenv("GOOGLE_API_KEY")
-    for model, _ in GEMINI_MODELS:
+    api_key = os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY")
+    if not api_key:
+        raise RuntimeError("API kalit topilmadi. .env faylida GEMINI_API_KEY yoki GOOGLE_API_KEY ni belgilang.")
+
+    for model, description in GEMINI_MODELS:
         try:
             response = litellm.completion(
                 model=model,
@@ -25,7 +31,8 @@ def translator(text: str, target_lang: str) -> str:
                 temperature=0.3,
             )
             return response.choices[0].message.content.strip()
-        except Exception:
+        except Exception as e:
+            logger.warning("Model %s ishlamadi: %s", description, e)
             continue
 
-    raise RuntimeError(f"Tarjima amalga oshmadi. Barcha modellar ishlamadi.")
+    raise RuntimeError("Tarjima amalga oshmadi. Barcha modellar ishlamadi.")

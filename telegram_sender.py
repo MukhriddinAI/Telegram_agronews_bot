@@ -4,12 +4,11 @@ import time
 import logging
 import requests
 from datetime import datetime
-from urllib.parse import urlparse
 
 logger = logging.getLogger(__name__)
 
-_PLACEHOLDER_TOKEN = "your_telegram_bot_token_here"
-_PLACEHOLDER_CHAT = "your_chat_id_here"
+_PLACEHOLDER_TOKEN = "TELEGRAM_BOT_TOKEN"
+_PLACEHOLDER_CHAT = "TELEGRAM_CHAT_ID"
 
 
 def _get_config():
@@ -30,10 +29,12 @@ def send_message(text: str, parse_mode: str = "HTML") -> bool:
     }
     try:
         response = requests.post(f"{api_base}/sendMessage", json=payload, timeout=15)
+        if response.status_code != 200:
+            logger.error(f"Telegram Error: {response.text}") # Bu yerda Bad Request sababi yoziladi
         response.raise_for_status()
         return True
-    except requests.RequestException as e:
-        logger.error("Telegram xabari yuborishda xato: %s", e)
+    except Exception as e:
+        logger.error(f"Xatolik yuz berdi: {e}")
         return False
 
 
@@ -43,42 +44,38 @@ def _escape_html(text: str) -> str:
 
 
 def _clean_url(url: str) -> str:
-    """Extract and clean a URL from LLM output."""
-    if not url:
+    if not url or not isinstance(url, str):
         return ""
-    url = url.strip().strip('"\'`')
-    # Extract URL from markdown format: [text](url)
-    md_match = re.search(r'\(https?://[^\)]+\)', url)
-    if md_match:
-        url = md_match.group(0)[1:-1]
-    # Remove trailing punctuation that LLM might add
-    url = url.rstrip(".,;:")
-    # Validate scheme and netloc
-    try:
-        parsed = urlparse(url)
-        if parsed.scheme in ("http", "https") and parsed.netloc:
-            return url
-    except Exception:
-        pass
+    
+    # AI ba'zan [text](link) ko'rinishida beradi, shuni ajratib olish
+    match = re.search(r'(https?://[^\s)\]]+)', url)
+    if match:
+        found_url = match.group(1)
+        # Oxiridagi keraksiz tinish belgilarini olib tashlash
+        return found_url.rstrip('.,;:-"\') ]')
     return ""
 
 
 def format_news_message(news_item: dict, index: int) -> str:
-    """Format a single news item as a Telegram HTML message."""
     sarlavha = news_item.get("Sarlavha", "Sarlavha yo'q")
     matn = news_item.get("Yangilik matni", "")
     manba = news_item.get("Manba", "")
 
-    # Escape HTML special chars so Telegram parser doesn't break
-    message = f"<b>{index}. {_escape_html(sarlavha)}</b>\n\n{_escape_html(matn)}\n\n"
+    # Sarlavha va matnni tozalash
+    safe_title = _escape_html(str(sarlavha))
+    safe_text = _escape_html(str(matn))
+    
+    message = f"<b>{index}. {safe_title}</b>\n\n{safe_text}\n\n"
 
     clean_url = _clean_url(manba)
     if clean_url:
-        # & in href must be &amp; in HTML mode
-        html_url = clean_url.replace("&", "&amp;")
-        message += f'<a href="{html_url}">Manbaga o\'tish</a>'
+        # URL ichidagi maxsus belgilarni Telegram HTML uchun tozalash
+        # Ayniqsa &, <, > belgilari href ichida ham muammo tug'diradi
+        html_url = clean_url.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+        message += f'<a href="{html_url}">👉 Manbaga o\'tish</a>'
     elif manba:
-        message += f"Manba: {_escape_html(manba)}"
+        message += f"<i>Manba:</i> {_escape_html(str(manba))}"
+    
     return message
 
 
