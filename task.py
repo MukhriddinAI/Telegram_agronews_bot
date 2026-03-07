@@ -15,7 +15,7 @@ def filter_and_analyse_task(agent, scraped_articles: list[dict]):
 
     return Task(
         description=f"""
-            Quyidagi scraped yangiliklar ro'yxatini tahlil qiling va ANIQ 2 ta tanlang:
+            Quyidagi scraped yangiliklar ro'yxatini tahlil qiling va ANIQ 10 ta tanlang:
 
             {articles_text}
 
