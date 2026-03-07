@@ -7,7 +7,7 @@ Kunlik agro yangiliklarni avtomatik yig'ib, eng sara **2 tasini** Telegram kanal
 ## Qanday ishlaydi
 
 ```
-[Scraper] → [Validator] → [Analyser] → [Summarizer] → [Telegram]
+[Scraper] → [Validator + Analyser] → [Summarizer] → [Telegram]
 ```
 
 | Agent | Vazifa |
