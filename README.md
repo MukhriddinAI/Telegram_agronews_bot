@@ -13,8 +13,7 @@ Kunlik agro yangiliklarni avtomatik yig'ib, eng sara **2 tasini** Telegram kanal
 | Agent | Vazifa |
 |-------|--------|
 | **Scraper** | 10 ta saytdan (5 O'zbekiston + 5 Jahon) DuckDuckGo orqali yangilik qidiradi |
-| **Validator** | Fake, takroriy va 7 kundan eski yangiliklarni olib tashlaydi |
-| **Analyser** | Eng muhim **2 ta** yangilikni tanlaydi |
+| **Validator** +  **Analyser** | Eng muhim **2 ta** yangilikni tanlaydi va fake, takroriy va 7 kundan eski yangiliklarni olib tashlaydi |
 | **Summarizer** | Telegram HTML formatida JSON chiqaradi |
 
 ---
